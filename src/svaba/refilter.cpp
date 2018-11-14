@@ -36,10 +36,10 @@ namespace opt {
 
   static int verbose = 1;
 
-  static bool suppress_refilter_bps = false; // S
+  static bool suppress_refilter_bps = false; // R
   static bool write_deduped_bps = false; // w
-  static bool suppress_write_vcf = false; // V
-  static bool suppress_dedupe_vcf = false; // D
+  static bool suppress_write_vcf = false; // W
+  static bool suppress_dedupe_vcf = false; // V
 
   // indel probability cutoffs
   static double lod = 8; // LOD that variant is not ref
@@ -59,7 +59,7 @@ enum {
 };
 
 
-static const char* shortopts = "hi:a:v:g:D:b:S:w:W:V:";
+static const char* shortopts = "hi:a:v:g:D:b:RwWV";
 static const struct option longopts[] = {
   { "help",                    no_argument, NULL, 'h' },
   { "input-bps",               required_argument, NULL, 'i'},
@@ -69,10 +69,10 @@ static const struct option longopts[] = {
   { "reference-genome",        required_argument, NULL, 'g'},
   { "analysis-id",             required_argument, NULL, 'a'},
   { "verbose",                 required_argument, NULL, 'v' },
-  { "suppress-refilter-bps",   required_argument, NULL, 'S' },
-  { "write-deduped-bps",       required_argument, NULL, 'w' },
-  { "suppress-write-vcf",      required_argument, NULL, 'W' },
-  { "suppress-dedupe-vcf",     required_argument, NULL, 'V' },
+  { "suppress-refilter-bps",   no_argument, NULL, 'R' },
+  { "write-deduped-bps",       no_argument, NULL, 'w' },
+  { "suppress-write-vcf",      no_argument, NULL, 'W' },
+  { "suppress-dedupe-vcf",     no_argument, NULL, 'V' },
   { "lod",                     required_argument, NULL, OPT_LOD },
   { "lod-dbsnp",               required_argument, NULL, OPT_LOD_DB },
   { "lod-somatic",             required_argument, NULL, OPT_LOD_SOMATIC },
@@ -94,7 +94,7 @@ static const char *BP_USAGE_MESSAGE =
 "  -g, --reference-genome               Path to indexed reference genome to be used by BWA-MEM. Default is Broad hg19 (/seq/reference/...)\n"
 "  -b, --opt-bam                        Input BAM file to get header from\n"
 "  -a, --id-string                      String specifying the analysis ID to be used as part of ID common.\n"
-"  -S, --suppress-refilter-bps          Don't refilter the input bps file, use the input bps directly.\n"
+"  -R, --suppress-refilter-bps          Don't refilter the input bps file, use the input bps directly.\n"
 "  -w, --write-deduped-bps              Write a new breakpoints file with duplicates removed (default false).\n"
 "  -W, --suppress-write-vcf             Don't write VCF files.\n"
 "  -V, --suppress-dedupe-vcf            Don't deduplicate the VCF file.\n"
@@ -134,7 +134,7 @@ void parseBreakOptions(int argc, char** argv) {
     case 'v': arg >> opt::verbose; break;
     case 'a': arg >> opt::analysis_id; break;
     case 'D': arg >> opt::dbsnp; break;
-    case 'S': opt::suppress_refilter_bps = true; break;
+    case 'R': opt::suppress_refilter_bps = true; break;
     case 'w': opt::write_deduped_bps = true; break;
     case 'W': opt::suppress_write_vcf = true; break;
     case 'V': opt::suppress_dedupe_vcf = true; break;
@@ -179,7 +179,10 @@ void runRefilterBreakpoints(int argc, char** argv) {
       "    LOD somatic cutoff:              " << opt::lod_somatic << std::endl << 
       "    LOD somatic cutoff (at DBSNP):   " << opt::lod_somatic_db << std::endl << 
       "    DBSNP Database file: " << opt::dbsnp << std::endl;
-    if (opt::suppress_refilter_bps) std::cerr << "Skipping refilter, just writing VCFs..." << std::endl;
+    if (opt::suppress_refilter_bps) std::cerr << "Refiltering is suppressed, using input bps file..." << std::endl;
+    if (opt::suppress_write_vcf) std::cerr << "Writing VCFs is suppressed, no VCFs will be written..." << std::endl;
+    if (opt::suppress_dedupe_vcf) std::cerr << "Deduplication is suppressed, VCFs may have duplicate breakpoints..." << std::endl;
+    if (opt::write_deduped_bps) std::cerr << "A deduplicated bps file will be written to stdout" << std::endl;
   }
 
     

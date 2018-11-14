@@ -364,11 +364,12 @@ VCFFile::VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, c
     std::cerr << "...vcf - deduplicated down to " << SeqLib::AddCommas((entry_pairs.size() - dups.size()))
               << " break pairs" << std::endl;
   } else {
-    std::cerr << "...Deduplication has been skipped!..." << std::endl;
+    std::cerr << "...deduplication has been skipped!..." << std::endl;
   }
   infile.close();
 
   if (write_deduped_bps) {
+    std::cerr << "...writing deduplicated bps to stdout..." << std::endl;
     // Collect all "good" lines into an ordered set
     for (auto& it : indels) {
       nondupelines.insert({it.first});
