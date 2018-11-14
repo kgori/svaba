@@ -36,6 +36,10 @@ namespace opt {
 
   static int verbose = 1;
 
+  static bool skip = false;
+  static bool dedupe = false;
+  static bool nodedupe = false;
+
   // indel probability cutoffs
   static double lod = 8; // LOD that variant is not ref
   static double lod_db = 6; // same, but at DB snp site (want lower bc we have prior)
@@ -54,7 +58,7 @@ enum {
 };
 
 
-static const char* shortopts = "hi:a:v:g:D:b:";
+static const char* shortopts = "hi:a:v:g:D:b:s:d:n:";
 static const struct option longopts[] = {
   { "help",                    no_argument, NULL, 'h' },
   { "input-bps",               required_argument, NULL, 'i'},
@@ -64,6 +68,9 @@ static const struct option longopts[] = {
   { "reference-genome",        required_argument, NULL, 'g'},
   { "analysis-id",             required_argument, NULL, 'a'},
   { "verbose",                 required_argument, NULL, 'v' },
+  { "skip-refilter",           required_argument, NULL, 's' },
+  { "dedupe-only",             required_argument, NULL, 'd' },
+  { "no-duplicate-removal",    required_argument, NULL, 'n' },
   { "lod",                     required_argument, NULL, OPT_LOD },
   { "lod-dbsnp",               required_argument, NULL, OPT_LOD_DB },
   { "lod-somatic",             required_argument, NULL, OPT_LOD_SOMATIC },
@@ -85,6 +92,9 @@ static const char *BP_USAGE_MESSAGE =
 "  -g, --reference-genome               Path to indexed reference genome to be used by BWA-MEM. Default is Broad hg19 (/seq/reference/...)\n"
 "  -b, --opt-bam                        Input BAM file to get header from\n"
 "  -a, --id-string                      String specifying the analysis ID to be used as part of ID common.\n"
+"  -s, --skip-refilter                  Skip refiltering the breakpoints file, just produce VCF.\n"
+"  -d, --dedupe-only                    Don't write VCF output, just write a new breakpoints file with duplicates removed.\n"
+"  -n, --no-duplicate-removal           Don't deduplicate the VCF file, assume it has no duplicates.\n"
 "  Required input\n"
 "  -i, --input-bps                      Original bps.txt.gz file\n"
 "  -b, --bam                            BAM file used to grab header from\n"
@@ -121,6 +131,9 @@ void parseBreakOptions(int argc, char** argv) {
     case 'v': arg >> opt::verbose; break;
     case 'a': arg >> opt::analysis_id; break;
     case 'D': arg >> opt::dbsnp; break;
+    case 's': opt::skip = true; break;
+    case 'd': opt::dedupe = true; break;
+    case 'n': opt::nodedupe = true; break;
     case OPT_LOD: arg >> opt::lod; break;
     case OPT_LOD_DB: arg >> opt::lod_db; break;
     case OPT_LOD_SOMATIC: arg >> opt::lod_somatic; break;
