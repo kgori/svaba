@@ -92,7 +92,7 @@ static const char *BP_USAGE_MESSAGE =
 "  -g, --reference-genome               Path to indexed reference genome to be used by BWA-MEM. Default is Broad hg19 (/seq/reference/...)\n"
 "  -b, --opt-bam                        Input BAM file to get header from\n"
 "  -a, --id-string                      String specifying the analysis ID to be used as part of ID common.\n"
-"  -s, --skip-refilter                  Skip refiltering the breakpoints file, just produce VCF.\n"
+"  -s, --skip-refilter                  Use the input breakpoints file directly to create the VCF (no refiltering).\n"
 "  -d, --dedupe-only                    Don't write VCF output, just write a new breakpoints file with duplicates removed.\n"
 "  -n, --no-duplicate-removal           Don't deduplicate the VCF file, assume it has no duplicates.\n"
 "  Required input\n"
@@ -175,6 +175,7 @@ void runRefilterBreakpoints(int argc, char** argv) {
       "    LOD somatic cutoff:              " << opt::lod_somatic << std::endl << 
       "    LOD somatic cutoff (at DBSNP):   " << opt::lod_somatic_db << std::endl << 
       "    DBSNP Database file: " << opt::dbsnp << std::endl;
+    if (opt::skip) std::cerr << "Skipping refilter, just writing VCFs..." << std::endl;
   }
 
     
@@ -198,66 +199,87 @@ void runRefilterBreakpoints(int argc, char** argv) {
   header.source = "";//opt::args;
   header.reference = "";//opt::refgenome;
 
-  // open bps file
-  std::string new_bps_file = opt::analysis_id + ".bps.txt.gz";
-  svabaUtils::fopen(new_bps_file, os_allbps_r);
-
-  // read in the BPS
+  std::string new_bps_file;
   std::vector<std::string> allele_names; // store with real name
-  std::map<std::string, SampleInfo> tmp_alleles;
-  std::string line, line2, val;
-  igzstream infile(opt::input_file.c_str(), std::ios::in);
-  size_t line_count = 0;
-  SeqLib::BamHeader hdr = bwalker.Header();
-  while (getline(infile, line, '\n')) {
-    if (line_count % 100000 == 0) 
-      std::cerr << "...read input bps / write output bps file at line " << SeqLib::AddCommas(line_count) << std::endl;
-      
-    if (line_count == 0) { // read the header
-      os_allbps_r << line << std::endl;
+  if (!opt::skip) {
+
+      // open bps file
+      new_bps_file = opt::analysis_id + ".bps.txt.gz";
+      svabaUtils::fopen(new_bps_file, os_allbps_r);
+
+      // read in the BPS
+      std::map <std::string, SampleInfo> tmp_alleles;
+      std::string line, line2, val;
+      igzstream infile(opt::input_file.c_str(), std::ios::in);
+      size_t line_count = 0;
+      SeqLib::BamHeader hdr = bwalker.Header();
+      while (getline(infile, line, '\n')) {
+          if (line_count % 100000 == 0)
+              std::cerr << "...read input bps / write output bps file at line " << SeqLib::AddCommas(line_count)
+                        << std::endl;
+
+          if (line_count == 0) { // read the header
+              os_allbps_r << line << std::endl;
+              std::istringstream f(line);
+              size_t scount = 0;
+              while (std::getline(f, val, '\t')) {
+                  ++scount;
+                  if (scount > 34) { // 35th column should be first sample ID
+                      assert(val.at(0) == 't' || val.at(0) == 'n');
+                      allele_names.push_back(val);
+                  }
+              }
+
+          } else {
+              BreakPoint *bp = new BreakPoint(line, hdr);
+
+              // fill in with the correct names from the header of bps.txt
+              std::string id;
+              for (auto &i : allele_names) {
+                  id += "A";
+                  tmp_alleles[i] = bp->allele[id];
+              }
+              bp->allele = tmp_alleles;
+
+              // fill in discordant info
+              for (auto &i : bp->allele) {
+                  if (i.first.at(0) == 't')
+                      bp->dc.tcount += i.second.disc;
+                  else
+                      bp->dc.ncount += i.second.disc;
+
+              }
+
+              // match against DBsnp database. Modify bp in place
+              if (dbsnp_filter && opt::dbsnp.length())
+                  dbsnp_filter->queryBreakpoint(*bp);
+
+              // score them
+              bp->scoreBreakpoint(opt::lod, opt::lod_db, opt::lod_somatic, opt::lod_somatic_db, opt::scale_error, 0);
+              os_allbps_r << bp->toFileString(!opt::read_tracking) << std::endl;
+              delete bp;
+          }
+          ++line_count;
+      }
+
+      os_allbps_r.close();
+  } else {
+      new_bps_file = opt::input_file;
+      std::vector<std::string> allele_names; // store with real name
+      igzstream infile(opt::input_file.c_str(), std::ios::in);
+      std::string line, val;
+      getline(infile, line, '\n');
+      // line = header
       std::istringstream f(line);
       size_t scount = 0;
       while (std::getline(f, val, '\t')) {
-	++scount;
-	if (scount > 34) { // 35th column should be first sample ID
-	  assert(val.at(0) == 't' || val.at(0) == 'n');
-	    allele_names.push_back(val);
-	}
+          ++scount;
+          if (scount > 34) { // 35th column should be first sample ID
+              assert(val.at(0) == 't' || val.at(0) == 'n');
+              allele_names.push_back(val);
+          }
       }
-
-    } else {
-	BreakPoint * bp = new BreakPoint(line, hdr);
-
-	// fill in with the correct names from the header of bps.txt
-	std::string id ;
-	for (auto& i : allele_names) {
-	  id += "A";
-	  tmp_alleles[i] = bp->allele[id];
-	}
-	bp->allele = tmp_alleles;
-
-	// fill in discordant info
-	for (auto& i : bp->allele) {
-	  if (i.first.at(0) == 't')
-	    bp->dc.tcount += i.second.disc;
-	  else
-	    bp->dc.ncount += i.second.disc;
-
-	}
-
-	// match against DBsnp database. Modify bp in place
-	if (dbsnp_filter && opt::dbsnp.length()) 
-	  dbsnp_filter->queryBreakpoint(*bp);
-
-	// score them
-	bp->scoreBreakpoint(opt::lod, opt::lod_db, opt::lod_somatic, opt::lod_somatic_db, opt::scale_error, 0);
-	os_allbps_r << bp->toFileString(!opt::read_tracking) << std::endl;
-	delete bp;
-      }
-    ++line_count;
   }
-
-  os_allbps_r.close();
   
   // primary VCFs
   std::cerr << " input file " << opt::input_file << std::endl;
