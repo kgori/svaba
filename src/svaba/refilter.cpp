@@ -59,7 +59,7 @@ enum {
 };
 
 
-static const char* shortopts = "hi:a:v:g:D:b:S:w:V:D:";
+static const char* shortopts = "hi:a:v:g:D:b:S:w:W:V:";
 static const struct option longopts[] = {
   { "help",                    no_argument, NULL, 'h' },
   { "input-bps",               required_argument, NULL, 'i'},
@@ -71,8 +71,8 @@ static const struct option longopts[] = {
   { "verbose",                 required_argument, NULL, 'v' },
   { "suppress-refilter-bps",   required_argument, NULL, 'S' },
   { "write-deduped-bps",       required_argument, NULL, 'w' },
-  { "suppress-write-vcf",      required_argument, NULL, 'V' },
-  { "suppress-dedupe-vcf",     required_argument, NULL, 'D' },
+  { "suppress-write-vcf",      required_argument, NULL, 'W' },
+  { "suppress-dedupe-vcf",     required_argument, NULL, 'V' },
   { "lod",                     required_argument, NULL, OPT_LOD },
   { "lod-dbsnp",               required_argument, NULL, OPT_LOD_DB },
   { "lod-somatic",             required_argument, NULL, OPT_LOD_SOMATIC },
@@ -96,8 +96,8 @@ static const char *BP_USAGE_MESSAGE =
 "  -a, --id-string                      String specifying the analysis ID to be used as part of ID common.\n"
 "  -S, --suppress-refilter-bps          Don't refilter the input bps file, use the input bps directly.\n"
 "  -w, --write-deduped-bps              Write a new breakpoints file with duplicates removed (default false).\n"
-"  -V, --suppress-write-vcf             Don't write VCF files.\n"
-"  -D, --suppress-dedupe-vcf            Don't deduplicate the VCF file.\n"
+"  -W, --suppress-write-vcf             Don't write VCF files.\n"
+"  -V, --suppress-dedupe-vcf            Don't deduplicate the VCF file.\n"
 "  Required input\n"
 "  -i, --input-bps                      Original bps.txt.gz file\n"
 "  -b, --bam                            BAM file used to grab header from\n"
@@ -136,8 +136,8 @@ void parseBreakOptions(int argc, char** argv) {
     case 'D': arg >> opt::dbsnp; break;
     case 'S': opt::suppress_refilter_bps = true; break;
     case 'w': opt::write_deduped_bps = true; break;
-    case 'V': opt::suppress_write_vcf = true; break;
-    case 'D': opt::suppress_dedupe_vcf = true; break;
+    case 'W': opt::suppress_write_vcf = true; break;
+    case 'V': opt::suppress_dedupe_vcf = true; break;
     case OPT_LOD: arg >> opt::lod; break;
     case OPT_LOD_DB: arg >> opt::lod_db; break;
     case OPT_LOD_SOMATIC: arg >> opt::lod_somatic; break;
@@ -179,7 +179,7 @@ void runRefilterBreakpoints(int argc, char** argv) {
       "    LOD somatic cutoff:              " << opt::lod_somatic << std::endl << 
       "    LOD somatic cutoff (at DBSNP):   " << opt::lod_somatic_db << std::endl << 
       "    DBSNP Database file: " << opt::dbsnp << std::endl;
-    if (opt::skip) std::cerr << "Skipping refilter, just writing VCFs..." << std::endl;
+    if (opt::suppress_refilter_bps) std::cerr << "Skipping refilter, just writing VCFs..." << std::endl;
   }
 
     
@@ -290,19 +290,19 @@ void runRefilterBreakpoints(int argc, char** argv) {
   if (SeqLib::read_access_test(new_bps_file)) {
     if (opt::verbose)
       std::cerr << "...making the primary VCFs (unfiltered and filtered) from file " << new_bps_file << std::endl;
-    VCFFile snowvcf(new_bps_file, opt::analysis_id, bwalker.Header(), header, true);
- 
-    std::string basename = opt::analysis_id + ".svaba.unfiltered.";
-    snowvcf.include_nonpass = true;
+    VCFFile snowvcf(new_bps_file, opt::analysis_id, bwalker.Header(), header, true, !opt::suppress_dedupe_vcf);
+
     if (!opt::suppress_write_vcf) {
+      std::string basename = opt::analysis_id + ".svaba.unfiltered.";
+      snowvcf.include_nonpass = true;
+      snowvcf.writeIndels(basename, false, allele_names.size() == 1);
+      snowvcf.writeSVs(basename, false, allele_names.size() == 1);
+
+      basename = opt::analysis_id + ".svaba.";
+      snowvcf.include_nonpass = false;
       snowvcf.writeIndels(basename, false, allele_names.size() == 1);
       snowvcf.writeSVs(basename, false, allele_names.size() == 1);
     }
-
-    basename = opt::analysis_id + ".svaba.";
-    snowvcf.include_nonpass = false;
-    if (!opt::dedupe_only) snowvcf.writeIndels(basename, false, allele_names.size() == 1);
-    if (!opt::dedupe_only) snowvcf.writeSVs(basename, false, allele_names.size() == 1);
 
   } else {
     std::cerr << "Failed to make VCF. Could not file bps file " << opt::input_file << std::endl;

@@ -185,7 +185,8 @@ bool VCFEntry::operator<(const VCFEntry &v) const {
 }
 
 // create a VCFFile from a svaba breakpoints file
-VCFFile::VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, const VCFHeader& vheader, bool nopass) {
+VCFFile::VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, const VCFHeader& vheader, bool nopass,
+        bool dedupe_vcf) {
 
   analysis_id = id;
 
@@ -355,10 +356,14 @@ VCFFile::VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, c
   cname_count.clear();
   std::cerr << "...vcf sizeof empty VCFEntryPair " << sizeof(VCFEntryPair) << " bytes " << std::endl;
   std::cerr << "...read in " << SeqLib::AddCommas(indels.size()) << " indels and " << SeqLib::AddCommas(entry_pairs.size()) << " SVs " << std::endl;
-  
-  std::cerr << "...vcf - deduplicating " << SeqLib::AddCommas(entry_pairs.size()) << " events" << std::endl;
-  deduplicate();
-  std::cerr << "...vcf - deduplicated down to " << SeqLib::AddCommas((entry_pairs.size() - dups.size())) << " break pairs" << std::endl;
+  if (dedupe_vcf) {
+    std::cerr << "...vcf - deduplicating " << SeqLib::AddCommas(entry_pairs.size()) << " events" << std::endl;
+    deduplicate();
+    std::cerr << "...vcf - deduplicated down to " << SeqLib::AddCommas((entry_pairs.size() - dups.size()))
+              << " break pairs" << std::endl;
+  } else {
+    std::cerr << "...Deduplication has been skipped!..." << std::endl;
+  }
   
 }
 
