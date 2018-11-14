@@ -182,7 +182,7 @@ void runRefilterBreakpoints(int argc, char** argv) {
     if (opt::suppress_refilter_bps) std::cerr << "Refiltering is suppressed, using input bps file..." << std::endl;
     if (opt::suppress_write_vcf) std::cerr << "Writing VCFs is suppressed, no VCFs will be written..." << std::endl;
     if (opt::suppress_dedupe_vcf) std::cerr << "Deduplication is suppressed, VCFs may have duplicate breakpoints..." << std::endl;
-    if (opt::write_deduped_bps) std::cerr << "A deduplicated bps file will be written to stdout" << std::endl;
+    if (opt::write_deduped_bps) std::cerr << "A deduplicated bps file will be written" << std::endl;
   }
 
     

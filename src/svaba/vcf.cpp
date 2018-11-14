@@ -15,6 +15,7 @@
 #include "SeqLib/GenomicRegionCollection.h"
 
 #include "svaba_params.h"
+#include "svabaUtils.h"
 
 using namespace std;
 
@@ -203,7 +204,7 @@ VCFFile::VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, c
 
   // read in the header of the csv
   std::string line;
-
+ 
   //string sample_id_tum = analysis_id + "T";
   //string sample_id_norm= analysis_id + "N";
 
@@ -362,14 +363,18 @@ VCFFile::VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, c
     std::cerr << "...vcf - deduplicating " << SeqLib::AddCommas(entry_pairs.size()) << " events" << std::endl;
     deduplicate();
     std::cerr << "...vcf - deduplicated down to " << SeqLib::AddCommas((entry_pairs.size() - dups.size()))
-              << " break pairs" << std::endl;
+              << " break pairs and " << indels.size() << " indels" << std::endl;
   } else {
     std::cerr << "...deduplication has been skipped!..." << std::endl;
   }
   infile.close();
 
   if (write_deduped_bps) {
-    std::cerr << "...writing deduplicated bps to stdout..." << std::endl;
+    ogzstream deduped_gzstream;
+    std::string deduped_bps_file = file + ".deduped.bps.txt.gz";
+    svabaUtils::fopen(deduped_bps_file, deduped_gzstream);
+
+    std::cerr << "...writing deduplicated bps to " << deduped_bps_file << "..." << std::endl;
     // Collect all "good" lines into an ordered set
     for (auto& it : indels) {
       nondupelines.insert({it.first});
@@ -391,7 +396,7 @@ VCFFile::VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, c
 
     getline(bpsfile, line, '\n'); // This is the header
 
-    std::cout << line << std::endl; // TODO: write to a file, not stdout
+    deduped_gzstream << line << std::endl;
 
     size_t line_count = 0;
     while (getline(bpsfile, line, '\n')) {
@@ -406,9 +411,8 @@ VCFFile::VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, c
       ++line_count;
 
       // if this line is in our set of nondups, write to output
-      // TODO: write to a file, not stdout
       if (nondupelines.find(line_count) != nondupelines.end()) {
-        std::cout << line << endl;
+        deduped_gzstream << line << endl;
       }
     }
     bpsfile.close();
