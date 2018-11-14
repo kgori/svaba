@@ -186,7 +186,9 @@ bool VCFEntry::operator<(const VCFEntry &v) const {
 
 // create a VCFFile from a svaba breakpoints file
 VCFFile::VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, const VCFHeader& vheader, bool nopass,
-        bool dedupe_vcf) {
+        bool dedupe_vcf, bool write_deduped_bps) {
+
+  this->write_deduped_bps = write_deduped_bps;
 
   analysis_id = id;
 
@@ -364,7 +366,52 @@ VCFFile::VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, c
   } else {
     std::cerr << "...Deduplication has been skipped!..." << std::endl;
   }
-  
+  infile.close();
+
+  if (write_deduped_bps) {
+    // Collect all "good" lines into an ordered set
+    for (auto& it : indels) {
+      nondupelines.insert({it.first});
+    }
+    for (auto it = entry_pairs.begin(); it != entry_pairs.end(); it++) {
+      if (!dups.count(it->first)) { // dont include duplicate entries
+        nondupelines.insert(it->first);
+      }
+    }
+
+    // Reread the input file and write the matching good lines to stdout
+    igzstream bpsfile(file.c_str(), ios::in);
+
+    // confirm that it is open
+    if (!bpsfile) {
+      cerr << "Can't read file " << file << " for parsing VCF" << endl;
+      exit(EXIT_FAILURE);
+    }
+
+    getline(bpsfile, line, '\n'); // This is the header
+
+    std::cout << line << std::endl; // TODO: write to a file, not stdout
+
+    size_t line_count = 0;
+    while (getline(bpsfile, line, '\n')) {
+
+      if (line.find("mapq") != std::string::npos)
+        continue;
+
+      if (line.find("Unknown") != std::string::npos)
+        continue;
+
+      // increment the line count
+      ++line_count;
+
+      // if this line is in our set of nondups, write to output
+      // TODO: write to a file, not stdout
+      if (nondupelines.find(line_count) != nondupelines.end()) {
+        std::cout << line << endl;
+      }
+    }
+    bpsfile.close();
+  }
 }
 
 // make a class to hold break end + id

@@ -290,7 +290,8 @@ void runRefilterBreakpoints(int argc, char** argv) {
   if (SeqLib::read_access_test(new_bps_file)) {
     if (opt::verbose)
       std::cerr << "...making the primary VCFs (unfiltered and filtered) from file " << new_bps_file << std::endl;
-    VCFFile snowvcf(new_bps_file, opt::analysis_id, bwalker.Header(), header, true, !opt::suppress_dedupe_vcf);
+    VCFFile snowvcf(new_bps_file, opt::analysis_id, bwalker.Header(), header, true, !opt::suppress_dedupe_vcf,
+            opt::write_deduped_bps);
 
     if (!opt::suppress_write_vcf) {
       std::string basename = opt::analysis_id + ".svaba.unfiltered.";

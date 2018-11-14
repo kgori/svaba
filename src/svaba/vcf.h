@@ -131,7 +131,7 @@ struct VCFFile {
 
   // create a VCFFile from a csv
   VCFFile(std::string file, std::string id, const SeqLib::BamHeader& h, const VCFHeader& vheader, bool nopass,
-          bool dedupe_vcf=true);
+          bool dedupe_vcf=true, bool write_deduped_bps=false);
 
   std::string filename;
   std::string method;
@@ -163,7 +163,10 @@ struct VCFFile {
   //
   void writeIndels(std::string basename, bool zip, bool onefile) const;
   void writeSVs(std::string basename, bool zip, bool onefile) const;
-  
+
+  // Write deduped BPS
+  bool write_deduped_bps = false;
+  std::set<int> nondupelines;
 
 };
 
